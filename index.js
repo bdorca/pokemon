@@ -1,69 +1,21 @@
-var IncomingWebhooks = require('@slack/client').IncomingWebhook;
-var googlemaps = require('googlemaps');
-var pokedex = require('./pokedex.json');
 var https = require('https');
+var utils=require('./utils');
+var slack=require('./slack');
+var gmaps=require('./gmaps');
+var Pokemon=require('./utils').Pokemon;
 
-//var pokemon_url = "https://hooks.slack.com/services/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";
-var test_url="https://hooks.slack.com/services/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"
-var wh = new IncomingWebhooks(test_url);
+var addresses_got = 0;
+var new_pokes=0;
+var myPokeList = {};
+var newPokeIds=[];
 
-var slack_username = "pokebot"
 
-var addresses_got = 0
-var myPokeList = [];
-
-var publicConfig = {
-    key: 'AIzaSyCAgXTGpIHG_GH66kiXWDe69TJ_y9RDrV8',
-    stagger_time: 1000, // for elevationPath
-    encode_polylines: false,
-    secure: true // use https
-};
-var gmAPI = new googlemaps(publicConfig);
-getPokes();
-
-function Pokemon(id, lat, long, disappear) {
-    this.id = id;
-    this.name = pokedex.pokemon[id - 1].name;
-    this.address = "";
-    this.lat = lat;
-    this.long = long;
-    var date = new Date(disappear);
-    var hours = date.getHours();
-    // Minutes part from the timestamp
-    var minutes = "0" + date.getMinutes();
-
-    // Will display time in 10:30:23 format
-    this.disappear = hours + ':' + minutes.substr(-2);
-}
-
-function geocode(poke) {
-    var reverseGeocodeParams = {
-        "latlng": poke.lat + "," + poke.long,
-        "result_type": "street_address",
-        "language": "hu"
-    };
-
-    gmAPI.reverseGeocode(reverseGeocodeParams, function(err, result) {
-        console.log(result.results[0].formatted_address);
-        poke.address = result.results[0].formatted_address;
-        if (++addresses_got == myPokeList.length) {
-            send_slack()
-        }
-    });
-}
-
-function send_slack() {
-    for (var i = 0; i < myPokeList.length; i++) {
-        var msg = myPokeList[i].name + " @" + myPokeList[i].address + ", until:" + myPokeList[i].disappear;
-        console.log(msg)
-        wh.send({
-            text: msg,
-            username: slack_username
-        });
-    }
-}
+getPokes()
+setInterval(getPokes,60000)
 
 function getPokes() {
+    addresses_got=0;
+    newPokeIds.splice(0);
     https.get({
         hostname: 'api.poketerkep.hu',
         path: '/game?gyms=false&neLat=47.58616187&neLng=19.22375896&pokemons=true&pokestops=false&selectedPokemons=cAAAAgAAAAgAAAADwAAAAAyCMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%3D%3D&showOrHide=true&swLat=47.44982478&swLng=18.91785839',
@@ -79,12 +31,38 @@ function getPokes() {
             var pokemons = JSON.parse(chunk).pokemons;
             for (var i = 0; i < pokemons.length; i++) {
                 var poke = pokemons[i]
-                myPokeList.push(new Pokemon(poke["pokemon_id"], poke["latitude"], poke["longitude"], poke["disappear_time"]))
-                geocode(myPokeList[i])
+                var enc_id=poke["encounter_id"]
+                if(!myPokeList.hasOwnProperty(enc_id)){
+                    var p=new Pokemon(poke["pokemon_id"], poke["latitude"], poke["longitude"], poke["disappear_time"]);
+                    myPokeList[enc_id]=p
+                    newPokeIds.push(enc_id)
+                    gmaps.geocode(myPokeList[enc_id], function(){
+                        if (++addresses_got >= newPokeIds.length) {
+                            sendSlack()
+                        }
+                    })
+                }
             }
         });
         res.resume();
     }).on('error', (e) => {
         console.log(`Got error: ${e.message}`);
     });
+}
+
+function GC(){
+    var now=new Date()
+    for(var k in myPokeList){
+        if(myPokeList[k].disappearDate<now){
+            delete myPokeList[k]
+        }
+    }
+}
+
+function sendSlack() {
+    for (var i=0;i<newPokeIds.length;i++) {
+        var msg = `${myPokeList[newPokeIds[i]].name} @${myPokeList[newPokeIds[i]].address} *until: ${myPokeList[newPokeIds[i]].disappear}*`;
+        console.log(msg)
+        slack.sendMessage(msg)
+    }
 }
