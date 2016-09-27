@@ -1,0 +1,11 @@
+{
+    "poketerkep": {
+        "hostname": "api.poketerkep.hu",
+        "channel": [
+            "/game?gyms=false&neLat=47.58616187&neLng=19.22375896&pokemons=true&pokestops=false&selectedPokemons=cAAAAgAAAAgAAAADwAAAAAyCMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%3D%3D&showOrHide=true&swLat=47.44982478&swLng=18.91785839"
+        ],
+        "ruttilus": [],
+        "legoo": [],
+        "brabulla": []
+    }
+}

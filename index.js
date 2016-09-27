@@ -17,12 +17,12 @@ function getPokes() {
     addresses_got=0;
     newPokeIds.splice(0);
     https.get({
-        hostname: 'api.poketerkep.hu',
-        path: '/game?gyms=false&neLat=47.58616187&neLng=19.22375896&pokemons=true&pokestops=false&selectedPokemons=cAAAAgAAAAgAAAADwAAAAAyCMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%3D%3D&showOrHide=true&swLat=47.44982478&swLng=18.91785839',
+        hostname: utils.hostname,
+        path: utils.path,
         headers: {
             "Accept": "application/json"
         }
-    }, (res) => {
+    }, function(res) {
         console.log('STATUS: ' + res.statusCode);
         console.log('HEADERS: ' + JSON.stringify(res.headers));
         res.setEncoding('utf8');
@@ -39,14 +39,15 @@ function getPokes() {
                     gmaps.geocode(myPokeList[enc_id], function(){
                         if (++addresses_got >= newPokeIds.length) {
                             sendSlack()
+                            GC()
                         }
                     })
                 }
             }
         });
         res.resume();
-    }).on('error', (e) => {
-        console.log(`Got error: ${e.message}`);
+    }).on('error', function(e) {
+        console.log('Got error: '+e.message);
     });
 }
 
@@ -61,7 +62,9 @@ function GC(){
 
 function sendSlack() {
     for (var i=0;i<newPokeIds.length;i++) {
-        var msg = `${myPokeList[newPokeIds[i]].name} @${myPokeList[newPokeIds[i]].address} *until: ${myPokeList[newPokeIds[i]].disappear}*`;
+        // var msg = `${myPokeList[newPokeIds[i]].name} @${myPokeList[newPokeIds[i]].address} *until: ${myPokeList[newPokeIds[i]].disappear}*`;
+         var msg = myPokeList[newPokeIds[i]].name + " @<http://maps.google.com/?q="+myPokeList[newPokeIds[i]].address +"|"+myPokeList[newPokeIds[i]].formatted_address+ ">"+ " *until: "+myPokeList[newPokeIds[i]].disappear+"*";
+
         console.log(msg)
         slack.sendMessage(msg)
     }
